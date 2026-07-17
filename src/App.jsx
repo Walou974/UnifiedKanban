@@ -1,16 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  DndContext, 
-  useDraggable, 
-  useDroppable, 
-  PointerSensor, 
-  useSensor, 
-  useSensors,
-  DragOverlay
-} from '@dnd-kit/core';
+
+import CardView from './components/CardView';
+import DraggableCard from './components/DraggableCard';
+import Column from './components/Column';
+import styles from './App.module.css';
+
+import { DndContext, PointerSensor, useSensor, useSensors, DragOverlay } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import { restrictToWindowEdges } from '@dnd-kit/modifiers';
-import styles from './App.module.css';
+
 
 const initialBoardData = {
   columns: [
@@ -22,96 +20,6 @@ const initialBoardData = {
     { id: 'card-1', columnId: 'col-todo', title: 'Exemple de tâche' }
   ]
 };
-
-// --- COMPOSANT CARTE RE-UTILISABLE (Visuel pur) ---
-function CardView({ card, onDelete, isDragging, listeners, attributes, style }) {
-  return (
-    <div
-      style={style}
-      {...listeners}
-      {...attributes}
-      className={`${styles.card} ${isDragging ? styles.isDragging : ''}`}
-    >
-      <span className={styles.cardTitle}>{card.title}</span>
-      {onDelete && (
-        <button 
-          draggable={false}
-          onClick={(e) => {
-            e.stopPropagation(); // Évite de déclencher le drag lors du clic
-            onDelete(card.id);
-          }} 
-          className={styles.deleteCardBtn}
-        >
-          ✕
-        </button>
-      )}
-    </div>
-  );
-}
-
-// --- COMPOSANT CARTE ACTIVE (Draggable) ---
-function DraggableCard({ card, onDelete }) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
-    id: card.id,
-  });
-
-  const style = {
-    transform: CSS.Translate.toString(transform),
-    opacity: isDragging ? 0.4 : 1, // Effet fantôme à son emplacement d'origine
-  };
-
-  return (
-    <div ref={setNodeRef} style={style}>
-      {/* 🟢 On passe bien la fonction onDelete à CardView ici */}
-      <CardView 
-        card={card} 
-        onDelete={onDelete} 
-        listeners={listeners} 
-        attributes={attributes}
-        isDragging={isDragging}
-      />
-    </div>
-  );
-}
-
-// --- COMPOSANT COLONNE (Droppable) ---
-function Column({ col, cards, onAddCard, onDeleteCard, onDeleteCol, onRenameCol }) {
-  const { setNodeRef, isOver } = useDroppable({
-    id: col.id,
-  });
-
-  return (
-    <div ref={setNodeRef} className={`${styles.column} ${isOver ? styles.draggingOver : ''}`}>
-      <div className={styles.columnHeader}>
-        <input 
-          type="text" 
-          value={col.title} 
-          onChange={(e) => onRenameCol(col.id, e.target.value)}
-          className={styles.columnTitleInput}
-        />
-        {/* 🟢 Correction : onDeleteCol de la prop au lieu de deleteColumn globale */}
-        <button onClick={() => onDeleteCol(col.id)} className={styles.deleteColBtn}>
-          ✕
-        </button>
-      </div>
-
-      <div className={styles.cardsList}>
-        {cards.map(card => (
-          <DraggableCard 
-            key={card.id} 
-            card={card} 
-            onDelete={onDeleteCard} 
-          />
-        ))}
-      </div>
-
-      {/* 🟢 Correction : onAddCard de la prop au lieu de addCard globale */}
-      <button onClick={() => onAddCard(col.id)} className={styles.addCardBtn}>
-        + Ajouter une tâche
-      </button>
-    </div>
-  );
-}
 
 // --- COMPOSANT PRINCIPAL (App) ---
 export default function App() {
@@ -160,14 +68,13 @@ export default function App() {
   };
 
   const deleteColumn = (colId) => {
-    if (confirm("Supprimer cette colonne et toutes ses tâches ?")) {
-      setColumns(columns.filter(col => col.id !== colId));
-      setCards(cards.filter(card => card.columnId !== colId));
-    }
+
+    setColumns(columns.filter(col => col.id !== colId));
+    setCards(cards.filter(card => card.columnId !== colId));
+
   };
 
-  const addCard = (colId) => {
-    const title = prompt("Nom de la tâche :");
+  const addCard = (colId, title) => {
     if (!title || title.trim() === "") return;
     setCards([...cards, { id: `card-${Date.now()}`, columnId: colId, title: title.trim() }]);
   };
@@ -189,7 +96,7 @@ export default function App() {
     const cardId = active.id;
     const targetColumnId = over.id;
 
-    setCards(prevCards => prevCards.map(card => 
+    setCards(prevCards => prevCards.map(card =>
       card.id === cardId ? { ...card, columnId: targetColumnId } : card
     ));
   };
@@ -199,26 +106,32 @@ export default function App() {
   return (
     <div className={styles.appContainer}>
       <header className={styles.header}>
-        <h1 className={styles.appTitle}>📋 Unified Kanban</h1>
+        <img src="/icons/icon1254.png" alt="logo"/>
+        <h1 className={styles.appTitle}> Unified Kanban</h1>
         <button onClick={addColumn} className={styles.addColumnBtn}>
           + Ajouter une colonne
         </button>
       </header>
 
-      <DndContext 
-        sensors={sensors} 
-        onDragStart={handleDragStart} 
+      <DndContext
+        sensors={sensors}
+        onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
-        <main className={styles.boardContainer}>
+        <main
+          className={styles.boardContainer}
+          style={{
+            '--column-height': columns.length <= 3 ? '420px' : '180px'
+          }}
+        >
           {columns.map(col => {
             const colCards = cards.filter(card => card.columnId === col.id);
             return (
-              <Column 
-                key={col.id} 
-                col={col} 
-                cards={colCards} 
-                onAddCard={addCard} 
+              <Column
+                key={col.id}
+                col={col}
+                cards={colCards}
+                onAddCard={addCard}
                 onDeleteCard={deleteCard}
                 onDeleteCol={deleteColumn}
                 onRenameCol={renameColumn}
